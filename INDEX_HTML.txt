@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f97316">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FoodHub">
+    <title>FoodHub - Order Food Online</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="icon-192.png">
+    
+    <!-- React and Babel for JSX -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+        }
+        
+        #root {
+            min-height: 100vh;
+        }
+        
+        /* Prevent pull-to-refresh on mobile */
+        body {
+            overscroll-behavior-y: contain;
+        }
+        
+        /* Hide scrollbar but keep functionality */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+        const { ShoppingCart, User, Clock, Check, ChefHat, Search, Home, Package, LogOut, Menu: MenuIcon, X } = lucide;
+
+        const FoodOrderingApp = () => {
+          const [currentScreen, setCurrentScreen] = useState('home');
+          const [isLoggedIn, setIsLoggedIn] = useState(false);
+          const [cart, setCart] = useState([]);
+          const [orders, setOrders] = useState([]);
+          const [userName, setUserName] = useState('');
+
+          // Sample menu data
+          const menuCategories = [
+            {
+              name: 'Burgers',
+              items: [
+                { id: 1, name: 'Classic Burger', price: 8.99, image: '🍔', description: 'Beef patty with lettuce, tomato, cheese' },
+                { id: 2, name: 'Chicken Burger', price: 7.99, image: '🍔', description: 'Grilled chicken with special sauce' },
+                { id: 3, name: 'Veggie Burger', price: 7.49, image: '🍔', description: 'Plant-based patty with fresh veggies' }
+              ]
+            },
+            {
+              name: 'Pizza',
+              items: [
+                { id: 4, name: 'Margherita', price: 12.99, image: '🍕', description: 'Tomato, mozzarella, basil' },
+                { id: 5, name: 'Pepperoni', price: 14.99, image: '🍕', description: 'Classic pepperoni and cheese' },
+                { id: 6, name: 'Veggie Supreme', price: 13.99, image: '🍕', description: 'Loaded with fresh vegetables' }
+              ]
+            },
+            {
+              name: 'Drinks',
+              items: [
+                { id: 7, name: 'Coca Cola', price: 2.99, image: '🥤', description: 'Chilled soft drink' },
+                { id: 8, name: 'Fresh Juice', price: 4.99, image: '🧃', description: 'Freshly squeezed orange juice' },
+                { id: 9, name: 'Coffee', price: 3.49, image: '☕', description: 'Hot brewed coffee' }
+              ]
+            },
+            {
+              name: 'Desserts',
+              items: [
+                { id: 10, name: 'Chocolate Cake', price: 5.99, image: '🍰', description: 'Rich chocolate layer cake' },
+                { id: 11, name: 'Ice Cream', price: 4.49, image: '🍨', description: 'Vanilla ice cream with toppings' }
+              ]
+            }
+          ];
+
+          const addToCart = (item) => {
+            const existingItem = cart.find(cartItem => cartItem.id === item.id);
+            if (existingItem) {
+              setCart(cart.map(cartItem => 
+                cartItem.id === item.id 
+                  ? { ...cartItem, quantity: cartItem.quantity + 1 }
+                  : cartItem
+              ));
+            } else {
+              setCart([...cart, { ...item, quantity: 1 }]);
+            }
+          };
+
+          const removeFromCart = (itemId) => {
+            const existingItem = cart.find(cartItem => cartItem.id === itemId);
+            if (existingItem.quantity > 1) {
+              setCart(cart.map(cartItem => 
+                cartItem.id === itemId 
+                  ? { ...cartItem, quantity: cartItem.quantity - 1 }
+                  : cartItem
+              ));
+            } else {
+              setCart(cart.filter(cartItem => cartItem.id !== itemId));
+            }
+          };
+
+          const getTotalPrice = () => {
+            return cart.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2);
+          };
+
+          const placeOrder = () => {
+            if (cart.length === 0) return;
+            
+            const newOrder = {
+              id: orders.length + 1,
+              items: [...cart],
+              total: getTotalPrice(),
+              status: 'preparing',
+              time: new Date().toLocaleTimeString(),
+              estimatedDelivery: '30-40 mins'
+            };
+            
+            setOrders([newOrder, ...orders]);
+            setCart([]);
+            setCurrentScreen('orders');
+          };
+
+          // Login Screen
+          const LoginScreen = () => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+
+            const handleLogin = (e) => {
+              e.preventDefault();
+              if (email && password) {
+                setUserName(email.split('@')[0]);
+                setIsLoggedIn(true);
+                setCurrentScreen('home');
+              }
+            };
+
+            return (
+              <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-orange-400 to-red-500 p-6">
+                <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
+                  <div className="text-center mb-8">
+                    <div className="text-6xl mb-4">🍽️</div>
+                    <h1 className="text-3xl font-bold text-gray-800">FoodHub</h1>
+                    <p className="text-gray-600 mt-2">Order your favorite meals</p>
+                  </div>
+                  
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="your@email.com"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 transition"
+                    >
+                      Sign In
+                    </button>
+                  </form>
+                  
+                  <p className="text-center text-gray-600 mt-6 text-sm">
+                    Don't have an account? <span className="text-orange-500 font-semibold cursor-pointer">Sign Up</span>
+                  </p>
+                </div>
+              </div>
+            );
+          };
+
+          // Home/Menu Screen
+          const HomeScreen = () => {
+            const [searchQuery, setSearchQuery] = useState('');
+
+            return (
+              <div className="pb-20">
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-b-3xl shadow-lg">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h2 className="text-2xl font-bold">Hello, {userName}!</h2>
+                      <p className="text-orange-100 text-sm">What would you like to eat?</p>
+                    </div>
+                    <div className="relative">
+                      <ShoppingCart className="w-6 h-6" />
+                      {cart.length > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-yellow-400 text-orange-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                          {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search for food..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 rounded-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  {menuCategories.map((category, idx) => (
+                    <div key={idx} className="mb-6">
+                      <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                        <ChefHat className="w-5 h-5 mr-2 text-orange-500" />
+                        {category.name}
+                      </h3>
+                      
+                      <div className="space-y-3">
+                        {category.items
+                          .filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .map((item) => (
+                            <div key={item.id} className="bg-white rounded-2xl shadow-md p-4 flex items-center">
+                              <div className="text-5xl mr-4">{item.image}</div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-800">{item.name}</h4>
+                                <p className="text-sm text-gray-600">{item.description}</p>
+                                <p className="text-orange-600 font-bold mt-1">${item.price}</p>
+                              </div>
+                              <button
+                                onClick={() => addToCart(item)}
+                                className="bg-orange-500 text-white px-4 py-2 rounded-full font-semibold hover:bg-orange-600 transition"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          };
+
+          // Cart Screen
+          const CartScreen = () => {
+            return (
+              <div className="pb-20">
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-b-3xl shadow-lg mb-4">
+                  <h2 className="text-2xl font-bold">Your Cart</h2>
+                  <p className="text-orange-100 text-sm">{cart.length} items</p>
+                </div>
+
+                <div className="p-4">
+                  {cart.length === 0 ? (
+                    <div className="text-center py-20">
+                      <ShoppingCart className="w-20 h-20 mx-auto text-gray-300 mb-4" />
+                      <p className="text-gray-500 text-lg">Your cart is empty</p>
+                      <button
+                        onClick={() => setCurrentScreen('home')}
+                        className="mt-4 bg-orange-500 text-white px-6 py-2 rounded-full font-semibold hover:bg-orange-600 transition"
+                      >
+                        Browse Menu
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-3 mb-4">
+                        {cart.map((item) => (
+                          <div key={item.id} className="bg-white rounded-2xl shadow-md p-4 flex items-center">
+                            <div className="text-4xl mr-3">{item.image}</div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-800">{item.name}</h4>
+                              <p className="text-orange-600 font-bold">${item.price}</p>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <button
+                                onClick={() => removeFromCart(item.id)}
+                                className="bg-gray-200 text-gray-800 w-8 h-8 rounded-full font-bold hover:bg-gray-300"
+                              >
+                                -
+                              </button>
+                              <span className="font-semibold text-gray-800 w-6 text-center">{item.quantity}</span>
+                              <button
+                                onClick={() => addToCart(item)}
+                                className="bg-orange-500 text-white w-8 h-8 rounded-full font-bold hover:bg-orange-600"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="bg-white rounded-2xl shadow-md p-6 mb-4">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-gray-600">Subtotal</span>
+                          <span className="font-semibold">${getTotalPrice()}</span>
+                        </div>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-gray-600">Delivery Fee</span>
+                          <span className="font-semibold">$2.99</span>
+                        </div>
+                        <div className="border-t pt-2 mt-2">
+                          <div className="flex justify-between">
+                            <span className="font-bold text-lg">Total</span>
+                            <span className="font-bold text-lg text-orange-600">
+                              ${(parseFloat(getTotalPrice()) + 2.99).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={placeOrder}
+                        className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition"
+                      >
+                        Place Order
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          };
+
+          // Orders Screen
+          const OrdersScreen = () => {
+            const getStatusColor = (status) => {
+              switch(status) {
+                case 'preparing': return 'bg-yellow-100 text-yellow-800';
+                case 'on_way': return 'bg-blue-100 text-blue-800';
+                case 'delivered': return 'bg-green-100 text-green-800';
+                default: return 'bg-gray-100 text-gray-800';
+              }
+            };
+
+            const getStatusIcon = (status) => {
+              switch(status) {
+                case 'preparing': return <Clock className="w-5 h-5" />;
+                case 'on_way': return <Package className="w-5 h-5" />;
+                case 'delivered': return <Check className="w-5 h-5" />;
+                default: return <Clock className="w-5 h-5" />;
+              }
+            };
+
+            return (
+              <div className="pb-20">
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-b-3xl shadow-lg mb-4">
+                  <h2 className="text-2xl font-bold">My Orders</h2>
+                  <p className="text-orange-100 text-sm">{orders.length} total orders</p>
+                </div>
+
+                <div className="p-4">
+                  {orders.length === 0 ? (
+                    <div className="text-center py-20">
+                      <Package className="w-20 h-20 mx-auto text-gray-300 mb-4" />
+                      <p className="text-gray-500 text-lg">No orders yet</p>
+                      <button
+                        onClick={() => setCurrentScreen('home')}
+                        className="mt-4 bg-orange-500 text-white px-6 py-2 rounded-full font-semibold hover:bg-orange-600 transition"
+                      >
+                        Start Ordering
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {orders.map((order) => (
+                        <div key={order.id} className="bg-white rounded-2xl shadow-md p-4">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h4 className="font-bold text-gray-800">Order #{order.id}</h4>
+                              <p className="text-sm text-gray-600">{order.time}</p>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-sm font-semibold flex items-center space-x-1 ${getStatusColor(order.status)}`}>
+                              {getStatusIcon(order.status)}
+                              <span className="ml-1 capitalize">{order.status.replace('_', ' ')}</span>
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-2 mb-3">
+                            {order.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between text-sm">
+                                <span className="text-gray-600">{item.quantity}x {item.name}</span>
+                                <span className="font-semibold">${(item.price * item.quantity).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="border-t pt-3 flex justify-between items-center">
+                            <div>
+                              <p className="text-sm text-gray-600">Estimated delivery</p>
+                              <p className="font-semibold text-orange-600">{order.estimatedDelivery}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-600">Total</p>
+                              <p className="font-bold text-lg">${order.total}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          };
+
+          // Profile Screen
+          const ProfileScreen = () => {
+            return (
+              <div className="pb-20">
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-b-3xl shadow-lg mb-4">
+                  <div className="text-center">
+                    <div className="w-20 h-20 bg-white rounded-full mx-auto mb-3 flex items-center justify-center">
+                      <User className="w-10 h-10 text-orange-500" />
+                    </div>
+                    <h2 className="text-2xl font-bold">{userName}</h2>
+                    <p className="text-orange-100 text-sm">{userName}@email.com</p>
+                  </div>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  <div className="bg-white rounded-2xl shadow-md p-4">
+                    <h3 className="font-semibold text-gray-800 mb-3">Account Settings</h3>
+                    <div className="space-y-2">
+                      <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-lg">Edit Profile</button>
+                      <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-lg">Delivery Addresses</button>
+                      <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-lg">Payment Methods</button>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl shadow-md p-4">
+                    <h3 className="font-semibold text-gray-800 mb-3">Support</h3>
+                    <div className="space-y-2">
+                      <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-lg">Help Center</button>
+                      <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-lg">Terms & Conditions</button>
+                      <button className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-lg">Privacy Policy</button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setIsLoggedIn(false);
+                      setCart([]);
+                      setOrders([]);
+                      setUserName('');
+                    }}
+                    className="w-full bg-red-500 text-white py-3 rounded-full font-semibold hover:bg-red-600 transition flex items-center justify-center space-x-2"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            );
+          };
+
+          // Bottom Navigation
+          const BottomNav = () => {
+            const navItems = [
+              { id: 'home', icon: Home, label: 'Home' },
+              { id: 'cart', icon: ShoppingCart, label: 'Cart' },
+              { id: 'orders', icon: Package, label: 'Orders' },
+              { id: 'profile', icon: User, label: 'Profile' }
+            ];
+
+            return (
+              <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200">
+                <div className="flex justify-around items-center py-2">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = currentScreen === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setCurrentScreen(item.id)}
+                        className={`flex flex-col items-center py-2 px-4 rounded-lg transition ${
+                          isActive ? 'text-orange-500' : 'text-gray-500'
+                        }`}
+                      >
+                        <div className="relative">
+                          <Icon className="w-6 h-6" />
+                          {item.id === 'cart' && cart.length > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                              {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs mt-1 font-medium">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          };
+
+          if (!isLoggedIn) {
+            return <LoginScreen />;
+          }
+
+          return (
+            <div className="bg-gray-50 min-h-screen max-w-md mx-auto">
+              {currentScreen === 'home' && <HomeScreen />}
+              {currentScreen === 'cart' && <CartScreen />}
+              {currentScreen === 'orders' && <OrdersScreen />}
+              {currentScreen === 'profile' && <ProfileScreen />}
+              <BottomNav />
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<FoodOrderingApp />);
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed'));
+            });
+        }
+    </script>
+</body>
+</html>
